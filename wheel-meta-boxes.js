@@ -51,7 +51,11 @@ const handleWheeling = ( canvas, editorDocument = canvas.ownerDocument ) => {
 	const onCanvasWheel = ( { currentTarget, deltaY, deltaMode } ) => {
 		if ( deltaY >= THRESHOLD ) {
 			const { scrollTop, scrollHeight, clientHeight } = currentTarget
-			if ( scrollTop >= scrollHeight - clientHeight ) {
+			// At some viewport heights the scrollHeight minus the clientHeight is a
+			// decimal and the scrollTop never matches that. Thus the maximum scroll
+			// is considered reached if within one pixel of the remainder.
+			const scrollMax = (scrollHeight - clientHeight) - scrollTop <= 1;
+			if ( scrollMax ) {
 				const { maxHeight } = metaPane.style
 				metaPane.style.height = maxHeight
 				dispatch(preferencesStore).set(
