@@ -14,7 +14,7 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 		.select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
 
 	const metaPaneLiner = metaPane.querySelector('.edit-post-layout__metaboxes')
-	const onMetaWheel = ( { deltaY, deltaMode } ) => {
+	const onMetaWheel = ( { deltaY } ) => {
 		if ( deltaY <= -getThreshold() ) {
 			if ( metaPaneLiner.scrollTop === 0 ) {
 				const { minHeight } = metaPane.style
@@ -29,7 +29,7 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 	}
 	metaPane.addEventListener('wheel', onMetaWheel)
 
-	const onCanvasWheel = ( { currentTarget, deltaY, deltaMode } ) => {
+	const onCanvasWheel = ( { currentTarget, deltaY } ) => {
 		if ( deltaY >= getThreshold() ) {
 			const { scrollTop, scrollHeight, clientHeight } = currentTarget
 			// At some viewport heights the scrollHeight minus the clientHeight is a
