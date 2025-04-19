@@ -56,7 +56,7 @@ const Sidebar = () => {
 						set('s8/wheel-meta-boxes', 'threshold', parseFloat(v))
 					},
 					help: 'The amount of input needed to maximize or minimize the meta box pane.',
-					step: 25,
+					spinFactor: 25,
 					spinControls: 'custom',
 					__next40pxDefaultSize: true,
 					__nextHasNoMarginBottom: true
