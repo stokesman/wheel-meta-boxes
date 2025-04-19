@@ -1,6 +1,4 @@
 (() => {
-// The amount of wheel input needed to maximize/minimize the meta boxes pane.
-const THRESHOLD = 5
 
 const { dispatch, select, subscribe } = wp.data
 const { store: editorStore } = wp.editor
@@ -23,10 +21,8 @@ subscribe( () => {
 	}
 }, editorStore)
 
-// TODO: maybe wheel handling with a single static threshold won’t work well for
-// all devices because this is assuming a pixel value for `deltaY`. Its actual
-// value might be lines or pages (dependant on UA configuration). The `deltaMode`
-// would need to be tested to deterimine that and a different threshold be used.
+const getThreshold = () => select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
+
 const handleWheeling = ( canvas, editorDocument = canvas.ownerDocument ) => {
 	const metaPane = editorDocument.querySelector('.edit-post-meta-boxes-main')
 	// Bails when the metaPane doesn’t exist (editing patterns/template parts).
@@ -34,7 +30,7 @@ const handleWheeling = ( canvas, editorDocument = canvas.ownerDocument ) => {
 
 	const metaPaneLiner = metaPane.querySelector('.edit-post-layout__metaboxes')
 	const onMetaWheel = ( { deltaY, deltaMode } ) => {
-		if ( deltaY <= -THRESHOLD ) {
+		if ( deltaY <= -getThreshold() ) {
 			if ( metaPaneLiner.scrollTop === 0 ) {
 				const { minHeight } = metaPane.style
 				metaPane.style.height = minHeight
@@ -49,7 +45,7 @@ const handleWheeling = ( canvas, editorDocument = canvas.ownerDocument ) => {
 	metaPane.addEventListener('wheel', onMetaWheel)
 
 	const onCanvasWheel = ( { currentTarget, deltaY, deltaMode } ) => {
-		if ( deltaY >= THRESHOLD ) {
+		if ( deltaY >= getThreshold() ) {
 			const { scrollTop, scrollHeight, clientHeight } = currentTarget
 			// At some viewport heights the scrollHeight minus the clientHeight is a
 			// decimal and the scrollTop never matches that. Thus the maximum scroll

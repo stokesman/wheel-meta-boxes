@@ -5,7 +5,7 @@
  * @package s8-wheel-meta-boxes
  */
 
-namespace s8\WP\PluginSidebar;
+namespace s8\WP\WheelMetaBoxes;
 
 add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\content_script' );
 function content_script() {
@@ -24,4 +24,28 @@ function content_script() {
 			true,
 		);
 	}
+}
+
+add_action( 'enqueue_block_editor_assets', __NAMESPACE__ . '\\sidebar' );
+function sidebar() {
+	wp_enqueue_script(
+		's8-wheel-meta-boxes-sidebar',
+		plugins_url( 'sidebar.js', __FILE__ ),
+		[
+			'wp-components',
+			'wp-compose',
+			'wp-data',
+			'wp-editor',
+			'wp-plugins',
+			'wp-preferences',
+		],
+		filemtime( plugin_dir_path( __FILE__ ) . 'sidebar.js' ),
+		true
+	);
+	wp_enqueue_style(
+		's8-wheel-meta-boxes-sidebar',
+		plugins_url( 'sidebar.css', __FILE__ ),
+		[],
+		filemtime( plugin_dir_path( __FILE__ ) . 'sidebar.css' )
+	);
 }
