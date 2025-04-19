@@ -28,6 +28,9 @@ function content_script() {
 
 add_action( 'enqueue_block_editor_assets', __NAMESPACE__ . '\\sidebar' );
 function sidebar() {
+	// Bails unless on 'post' screen (avoiding site editor).
+	if ('post' !== get_current_screen()->base) return;
+
 	wp_enqueue_script(
 		's8-wheel-meta-boxes-sidebar',
 		plugins_url( 'sidebar.js', __FILE__ ),
