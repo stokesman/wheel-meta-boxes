@@ -13,6 +13,48 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 	const getThreshold = () => editorDocument.defaultView.wp.data
 		.select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
 
+	const adjustSplit = ( { deltaY } ) => {
+		const { height, minHeight, maxHeight } = metaPane.style
+		const nextHeight = Math.max(
+			parseFloat(minHeight), Math.min(
+				parseFloat(maxHeight),
+				parseFloat(height) + deltaY
+			)
+		)
+		metaPane.style.height = `${nextHeight}px`
+		dispatch(preferencesStore).set(
+			editPostStore.name,
+			'metaBoxesMainOpenHeight',
+			nextHeight
+		)
+	}
+
+	const interfaceContent = metaPane.parentElement
+	// Toggles an overlay on Control key press/release for adjusting the split.
+	// While the listeners added to the meta pane and the canvas could be used
+	// for this same feature, it doesn’t work quite as seamlessly. It’s also
+	// nice that the overlay obstructs scrolling without having to call
+	// `preventDefault` and use non-passive event listeners.
+	editorDocument.addEventListener('keydown', ({key}) => {
+		if (key === 'Control') {
+			interfaceContent.classList.add('&wheel-overlay')
+			interfaceContent.addEventListener('wheel', adjustSplit)
+			// On macOS there’s a chance someone could be using the Control key
+			// to alternate click and the overlay may block the intended target.
+			// To avoid that, this hides the overlay on pointerdown.
+			interfaceContent.addEventListener('pointerdown', () => {
+				interfaceContent.classList.remove('&wheel-overlay')
+				interfaceContent.removeEventListener('wheel', adjustSplit)
+			}, {once: true})
+		}
+	})
+	editorDocument.addEventListener('keyup', ({key}) => {
+		if (key === 'Control') {
+			interfaceContent.classList.remove('&wheel-overlay')
+			interfaceContent.removeEventListener('wheel', adjustSplit)
+		}
+	})
+
 	const metaPaneLiner = metaPane.querySelector('.edit-post-layout__metaboxes')
 	const onMetaWheel = ( { deltaY } ) => {
 		if ( deltaY <= -getThreshold() ) {
@@ -70,6 +112,18 @@ if ( ! location.href.startsWith('blob:') ) {
 		}
 	})
 	spy.observe(editorContainer, {childList:true, subtree:true})
+
+	// Adds style for the interface content element’s overlay.
+	const wheelStyle = document.createElement('style')
+	wheelStyle.textContent = `
+		.\\&wheel-overlay.interface-interface-skeleton__content::before {
+			content:'';
+			position:absolute;
+			inset: 0;
+			z-index: 99999;
+		}
+	`
+	document.head.appendChild(wheelStyle)
 } else {
 	const handleWheeling = makeWheelInitializer(window.document.documentElement, window.parent.document)
 	handleWheeling()
