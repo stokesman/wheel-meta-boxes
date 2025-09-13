@@ -13,12 +13,13 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 	const getThreshold = () => editorDocument.defaultView.wp.data
 		.select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
 
-	const adjustSplit = ( { deltaY } ) => {
+	const adjustSplit = ( event ) => {
+		event.preventDefault();
 		const { height, minHeight, maxHeight } = metaPane.style
 		const nextHeight = Math.max(
 			parseFloat(minHeight), Math.min(
 				parseFloat(maxHeight),
-				parseFloat(height) + deltaY
+				parseFloat(height) + event.deltaY
 			)
 		)
 		metaPane.style.height = `${nextHeight}px`
@@ -32,9 +33,7 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 	const interfaceContent = metaPane.parentElement
 	// Toggles an overlay on Control key press/release for adjusting the split.
 	// While the listeners added to the meta pane and the canvas could be used
-	// for this same feature, it doesn’t work quite as seamlessly. It’s also
-	// nice that the overlay obstructs scrolling without having to call
-	// `preventDefault` and use non-passive event listeners.
+	// for this same feature, it doesn’t work quite as seamlessly.
 	editorDocument.addEventListener('keydown', ({key}) => {
 		if (key === 'Control') {
 			interfaceContent.classList.add('&wheel-overlay')
@@ -69,7 +68,7 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 			}
 		}
 	}
-	metaPane.addEventListener('wheel', onMetaWheel)
+	metaPane.addEventListener('wheel', onMetaWheel, { passive: true })
 
 	const onCanvasWheel = ( { currentTarget, deltaY } ) => {
 		if ( deltaY >= getThreshold() ) {
@@ -89,7 +88,7 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 			}
 		}
 	}
-	canvas.addEventListener('wheel', onCanvasWheel)
+	canvas.addEventListener('wheel', onCanvasWheel, { passive: true })
 }
 
 // The way that wheel handling is added has to be different depending on whether
