@@ -104,7 +104,11 @@ if ( ! location.href.startsWith('blob:') ) {
 		const visualEditor = editorContainer.querySelector('.editor-visual-editor')
 		if ( visualEditor ) {
 			spy.disconnect();
-			if (visualEditor.matches('.is-iframed')) return
+			if (
+				visualEditor.matches('.is-iframed') ||
+				// Meta box pane is absent - meta boxes are inside the editor canvas.
+				! editorContainer.querySelector('.edit-post-meta-boxes-main')
+			) return
 
 			makeWheelInitializer(
 				document.querySelector('.block-editor-block-canvas')
