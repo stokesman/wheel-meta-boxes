@@ -16,13 +16,13 @@ const isScrollMax = element => {
 
 /**
  * @param {HTMLElement} canvas
- * @param {Document=}   editorDocument
+ * @param {HTMLElement} metaPane
  */
-const initiate = ( canvas, editorDocument = canvas.ownerDocument) => {
-	const metaPane = /**@type {HTMLElement?}*/(editorDocument.querySelector('.edit-post-meta-boxes-main'))
+const activate = ( canvas, metaPane ) => {
 	console.log('handle wheeling', {canvas, metaPane})
 	// Bails when the metaPane doesn’t exist (editing patterns/template parts).
-	if ( ! metaPane ) return;
+	if ( ! metaPane ) return
+	const editorDocument = metaPane.ownerDocument
 
 	const getThreshold = () =>
 		select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
@@ -147,12 +147,9 @@ const initiate = ( canvas, editorDocument = canvas.ownerDocument) => {
 	}
 }
 
-const getCanvas = () => {
-	const canvasWindow = window['editor-canvas']
-	return canvasWindow
-		? canvasWindow.document.documentElement
-		: /**@type {HTMLElement?}*/(document.querySelector('.block-editor-block-canvas'))
-}
+const getCanvas = () => window['editor-canvas']?.document.documentElement ?? null
+const getInlineCanvas = () => /**@type {HTMLElement?}*/(document.querySelector('.block-editor-block-canvas'))
+const getMetaPane = () => /**@type {HTMLElement?}*/(editorContainer.querySelector('.edit-post-meta-boxes-main'))
 
 const editorContainer = /** @type {Element} */(document.querySelector('#editor'))
 // Observes mutations within editorContainer until it can be determined whether
@@ -162,22 +159,13 @@ const spy = new MutationObserver(() => {
 	if ( ! visualEditor ) return
 
 	spy.disconnect();
+	if ( ! getMetaPane() ) return;
+
 	const canvasWindow = window['editor-canvas'];
 	// Canvas iframe is present.
-	if ( canvasWindow ){
-		canvasWindow.onload = () => {
-			initiate(canvasWindow.document.documentElement, document)
-			reiniateOnPostTypeChange()
-		}
-	}
+	if ( canvasWindow ) canvasWindow.onload = () => initiate( getCanvas )
 	// WP 6.8 has the resizable meta box pane even without the iframe.
-	else if ( editorContainer.querySelector('.edit-post-meta-boxes-main') ) {
-		const canvas = getCanvas();
-		if ( ! canvas ) return;
-
-		initiate( canvas )
-		reiniateOnPostTypeChange()
-	}
+	else if ( getInlineCanvas() ) initiate( getInlineCanvas )
 })
 spy.observe(editorContainer, {childList:true, subtree:true})
 
@@ -197,18 +185,21 @@ document.head.appendChild(wheelStyle)
 // template part where the meta box pane is no longer available. When
 // switching back to the post the wheel handling has to be reinitiated
 // and this adds a subscriber to ensure that happens.
-const reiniateOnPostTypeChange = () => {
+/** @param {() => (HTMLElement | null)} canvasGetter */
+const initiate = ( canvasGetter ) => {
+	const activator = () => {
+		const canvas = canvasGetter();
+		const metaPane = getMetaPane();
+		if ( canvas && metaPane ) activate( canvas, metaPane )
+	}
+	activator();
 	let stalePostType = ''
 	subscribe( () => {
 		const postType = select(editorStore.name).getCurrentPostType()
 		if (!stalePostType) stalePostType = postType
 		else if (postType !== stalePostType) {
 			stalePostType = postType
-			const canvas = getCanvas()
-			if ('post' === postType && canvas) initiate(
-				canvas,
-				document
-			)
+			if ('post' === postType) activator();
 		}
 	}, editorStore)
 }
