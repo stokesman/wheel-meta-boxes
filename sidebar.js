@@ -1,27 +1,60 @@
-(() => {
+((wp) => {
 
-const { createElement: m } = React
-const { Card, CardBody, __experimentalNumberControl: NumberControl } = wp.components
+const { createElement: m } = wp.element
+const {
+	Card,
+	CardBody,
+	CardDivider,
+	__experimentalNumberControl: NumberControl,
+	ToggleControl,
+	__experimentalToggleGroupControl: ToggleGroupControl,
+	__experimentalToggleGroupControlOption: ToggleGroupControlOption,
+	__experimentalSpacer: Spacer,
+} = wp.components
 const { useRefEffect } = wp.compose
 const { dispatch, useDispatch, useSelect } = wp.data
 const { PluginSidebar } = wp.editor
+const { isAppleOS } = wp.keycodes
 const { registerPlugin } = wp.plugins
 const { store: preferencesStore } = wp.preferences
 
+/** @typedef {'gradual'|'whole'|'none'} Mode */
+
 dispatch( preferencesStore ).setDefaults(
 	's8/wheel-meta-boxes',
-	{ threshold: 5 }
+	{ freewheeling: true, mode: 'gradual', threshold: 5 }
 );
 
+const modeHelpMap = {
+	gradual: 'Adjust in proportion to input amount.',
+	whole: 'Expand or collapse wholly when input threshold is met.',
+	none: '',
+}
+
+const modifierKey = isAppleOS() ? 'control' : 'Ctrl';
+
 const Sidebar = () => {
-	const threshold = useSelect(
-		$ => $( preferencesStore ).get('s8/wheel-meta-boxes', 'threshold'),
-		[]
-	)
+	/** @type {[boolean, Mode, number]} */
+	const [ freewheeling, mode, threshold ] = useSelect( $ => {
+		const prefs = $( preferencesStore )
+		return [
+			prefs.get('s8/wheel-meta-boxes', 'freewheeling'),
+			prefs.get('s8/wheel-meta-boxes', 'mode'),
+			prefs.get('s8/wheel-meta-boxes', 'threshold'),
+		]
+	}, [] )
 	const { set } = useDispatch( preferencesStore )
+
+	/** @param {string} v */
+	const setMode = v => set( 's8/wheel-meta-boxes', 'mode', v)
+
+	/** @param {boolean} v */
+	const setFreewheeling = v => set( 's8/wheel-meta-boxes', 'freewheeling', v)
+
 	const effectTrackImpulse = useRefEffect( ( node ) => {
 		let maxImpulse = 0
 		let timeoutId = -1
+		/** @param {WheelEvent} event */
 		const trackImpulse = ( { deltaY } ) => {
 			maxImpulse = Math.max( Math.abs(deltaY), maxImpulse )
 			node.textContent = `${ Math.round(maxImpulse) }`
@@ -49,25 +82,51 @@ const Sidebar = () => {
 			Card,
 			{ size: 'small', isBorderless: true },
 			m( CardBody, null,
-				m( NumberControl, {
-					label: 'Threshold',
-					value: `${threshold}`,
-					onChange: v => {
-						set('s8/wheel-meta-boxes', 'threshold', parseFloat(v))
-					},
-					help: 'The amount of input needed to maximize or minimize the meta box pane.',
-					spinFactor: 25,
-					spinControls: 'custom',
-					__next40pxDefaultSize: true,
-					__nextHasNoMarginBottom: true
-				} ),
 				m(
-					'div',
-					{ className: 's8-wheel-meta-boxes-read-out' },
-					m('span', null, 'Last maximum input:' ),
-					m('span', { ref: effectTrackImpulse, className: 's8-wheel-meta-boxes-read-out/value' }, '0' ),
-					m('small', null, 'Use your mouse wheel or scroll gesture on touch devices to gauge what threshold value will work best for you.')
-				)
+					ToggleGroupControl,
+					{
+						label:'Behavior at bounds',
+						onChange: setMode,
+						value: mode,
+						isBlock: true,
+						__next40pxDefaultSize: true,
+						__nextHasNoMarginBottom: true,
+						help: modeHelpMap[mode]
+					},
+					m(ToggleGroupControlOption, {label:'Gradual', value:'gradual'}),
+					m(ToggleGroupControlOption, {label:'Whole', value:'whole'}),
+					m(ToggleGroupControlOption, {label:'None', value:'none'})
+				),
+				...(mode === 'whole' ? [
+					m( Spacer ),
+					m( NumberControl, {
+						label: 'Threshold',
+						value: `${threshold}`,
+						onChange: v => {
+							set('s8/wheel-meta-boxes', 'threshold', parseFloat(v))
+						},
+						help: 'The amount of input needed to expand or collapse the meta box pane.',
+						spinFactor: 25,
+						spinControls: 'custom',
+						__next40pxDefaultSize: true,
+						__nextHasNoMarginBottom: true
+					} ),
+					m(
+						'div',
+						{ className: 's8-wheel-meta-boxes-read-out' },
+						m('span', null, 'Last maximum input:' ),
+						m('span', { ref: effectTrackImpulse, className: 's8-wheel-meta-boxes-read-out/value' }, '0' ),
+						m('small', null, 'Use your mouse wheel or scroll gesture on touch devices to gauge what threshold value will work best for you.')
+					)
+				] : []),
+				m( CardDivider ),
+				m( ToggleControl, {
+					label: 'Freewheeling',
+					checked: freewheeling,
+					onChange: setFreewheeling,
+					help: `Enable directly adjusting the split without scrolling while pressing the ${ modifierKey} key.`,
+					__nextHasNoMarginBottom: true
+				})
 			)
 		)
 	)
@@ -77,4 +136,4 @@ registerPlugin( 's8-wheel-meta-boxes-sidebar', {
 	render: Sidebar
 } )
 
-})()
+})(window.wp)

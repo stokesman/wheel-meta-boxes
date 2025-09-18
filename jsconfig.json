@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "es2018",
+		"moduleResolution": "nodenext",
+		"jsx": "preserve",
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"sourceMap": true,
+		"strict": true
+	}
+}

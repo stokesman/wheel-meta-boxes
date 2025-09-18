@@ -1,27 +1,38 @@
-(() => {
+((wp) => {
 
-const { dispatch } = wp.data
+const { dispatch, select, subscribe } = wp.data
 const { store: editorStore } = wp.editor
 const { store: editPostStore } = wp.editPost
 const { store: preferencesStore } = wp.preferences
 
-const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) => () => {
-	const metaPane = editorDocument.querySelector('.edit-post-meta-boxes-main')
+/** @param {Element} element */
+const isScrollMax = element => {
+	const { scrollTop, scrollHeight, clientHeight } = element
+	// At some viewport heights the scrollHeight minus the clientHeight is a
+	// decimal and the scrollTop never matches that. Thus the maximum scroll
+	// is considered reached if within one pixel of the remainder.
+	return (scrollHeight - clientHeight) - scrollTop <= 1
+}
+
+/**
+ * @param {HTMLElement} canvas
+ * @param {Document=}   editorDocument
+ */
+const initiate = ( canvas, editorDocument = canvas.ownerDocument) => {
+	const metaPane = /**@type {HTMLElement?}*/(editorDocument.querySelector('.edit-post-meta-boxes-main'))
+	console.log('handle wheeling', {canvas, metaPane})
 	// Bails when the metaPane doesn’t exist (editing patterns/template parts).
 	if ( ! metaPane ) return;
 
-	const getThreshold = () => editorDocument.defaultView.wp.data
-		.select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
+	const getThreshold = () =>
+		select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
+	const getMode = () =>
+		select(preferencesStore).get('s8/wheel-meta-boxes', 'mode')
+	const getFreeWheeling = () =>
+		select(preferencesStore).get('s8/wheel-meta-boxes', 'freewheeling')
 
-	const adjustSplit = ( event ) => {
-		event.preventDefault();
-		const { height, minHeight, maxHeight } = metaPane.style
-		const nextHeight = Math.max(
-			parseFloat(minHeight), Math.min(
-				parseFloat(maxHeight),
-				parseFloat(height) + event.deltaY
-			)
-		)
+	/** @param {Number} nextHeight */
+	const applyHeight = nextHeight => {
 		metaPane.style.height = `${nextHeight}px`
 		dispatch(preferencesStore).set(
 			editPostStore.name,
@@ -30,120 +41,176 @@ const makeWheelInitializer = ( canvas, editorDocument = canvas.ownerDocument) =>
 		)
 	}
 
-	const interfaceContent = metaPane.parentElement
+	/** @param {Number} by */
+	const adjustSplit = ( by ) => {
+		const { height, minHeight, maxHeight } = metaPane.style
+		const nextHeight = Math.max(
+			parseFloat(minHeight), Math.min(
+				parseFloat(maxHeight),
+				parseFloat(height) + by
+			)
+		)
+		applyHeight( nextHeight )
+	}
+
+	const interfaceContent = /**@type {HTMLElement}*/(metaPane.parentElement)
+	/** @param {WheelEvent} event */
+	const hotKeyAdjustSplit = event => {
+		// In Firefox wheel events lingeringly dispatch on targets which can make scrolling
+		// that started before holding the Control key continue unexpectedly when adjusting
+		// the split. Preventing default cures it (besides maybe a sliver).
+		event.preventDefault()
+		adjustSplit( event.deltaY )
+	}
 	// Toggles an overlay on Control key press/release for adjusting the split.
 	// While the listeners added to the meta pane and the canvas could be used
 	// for this same feature, it doesn’t work quite as seamlessly.
 	editorDocument.addEventListener('keydown', ({key}) => {
-		if (key === 'Control') {
+		if (getFreeWheeling() && key === 'Control') {
 			interfaceContent.classList.add('&wheel-overlay')
-			interfaceContent.addEventListener('wheel', adjustSplit)
+			interfaceContent.addEventListener('wheel', hotKeyAdjustSplit)
 			// On macOS there’s a chance someone could be using the Control key
 			// to alternate click and the overlay may block the intended target.
 			// To avoid that, this hides the overlay on pointerdown.
 			interfaceContent.addEventListener('pointerdown', () => {
 				interfaceContent.classList.remove('&wheel-overlay')
-				interfaceContent.removeEventListener('wheel', adjustSplit)
+				interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
 			}, {once: true})
 		}
 	})
 	editorDocument.addEventListener('keyup', ({key}) => {
-		if (key === 'Control') {
+		if (getFreeWheeling() && key === 'Control') {
 			interfaceContent.classList.remove('&wheel-overlay')
-			interfaceContent.removeEventListener('wheel', adjustSplit)
+			interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
 		}
 	})
 
-	const metaPaneLiner = metaPane.querySelector('.edit-post-layout__metaboxes')
-	const onMetaWheel = ( { deltaY } ) => {
-		if ( deltaY <= -getThreshold() ) {
-			if ( metaPaneLiner.scrollTop === 0 ) {
-				const { minHeight } = metaPane.style
-				metaPane.style.height = minHeight
-				dispatch(preferencesStore).set(
-					editPostStore.name,
-					'metaBoxesMainOpenHeight',
-					parseFloat(minHeight)
-				)
-			}
+	let isStickingScroll = false;
+
+	const metaPaneLiner = /**@type {HTMLElement}*/(metaPane.querySelector('.edit-post-layout__metaboxes'))
+	/** @param {WheelEvent} event */
+	const onMetaWheel = ( event ) => {
+		console.log('meta wheel')
+		switch ( getMode() ) {
+			case 'gradual':
+				if ( metaPaneLiner.scrollTop === 0 && isScrollMax( canvas ) ) {
+					adjustSplit( event.deltaY )
+					isStickingScroll = true
+					if ( canvasIframeHeight > 0 ) event.preventDefault();
+				}
+				break;
+			case 'whole':
+				if ( event.deltaY <= -getThreshold() ) {
+					if ( metaPaneLiner.scrollTop === 0 ) {
+						const { minHeight } = metaPane.style
+						metaPane.style.height = minHeight
+						applyHeight( parseFloat(minHeight) )
+					}
+				}
 		}
 	}
-	metaPane.addEventListener('wheel', onMetaWheel, { passive: true })
+	metaPane.addEventListener('wheel', onMetaWheel, { passive: false })
 
-	const onCanvasWheel = ( { currentTarget, deltaY } ) => {
-		if ( deltaY >= getThreshold() ) {
-			const { scrollTop, scrollHeight, clientHeight } = currentTarget
-			// At some viewport heights the scrollHeight minus the clientHeight is a
-			// decimal and the scrollTop never matches that. Thus the maximum scroll
-			// is considered reached if within one pixel of the remainder.
-			const scrollMax = (scrollHeight - clientHeight) - scrollTop <= 1;
-			if ( scrollMax ) {
-				const { maxHeight } = metaPane.style
-				metaPane.style.height = maxHeight
-				dispatch(preferencesStore).set(
-					editPostStore.name,
-					'metaBoxesMainOpenHeight',
-					parseFloat( maxHeight )
-				)
+	/** @param {WheelEvent} event */
+	const onCanvasWheel = ( event ) => {
+		if ( isScrollMax( canvas ) ) {
+			switch( getMode() ) {
+				case 'gradual':
+					adjustSplit( event.deltaY )
+					isStickingScroll = true
+					break;
+				case 'whole':
+					if ( event.deltaY >= getThreshold() ) {
+						const { maxHeight } = metaPane.style
+						metaPane.style.height = maxHeight
+						applyHeight( parseFloat( maxHeight ) )
+					}
 			}
 		}
 	}
 	canvas.addEventListener('wheel', onCanvasWheel, { passive: true })
+
+	let canvasIframeHeight = -1
+	if ( getMode() === 'gradual' ) {
+		const canvasIframe = canvas.ownerDocument.defaultView?.frameElement
+		const stickScrollOnResize = new ResizeObserver( ([{ borderBoxSize }]) => {
+			console.log('canvas resize');
+			[{ blockSize: canvasIframeHeight }] = borderBoxSize
+			if ( isStickingScroll ) {
+				console.log('sticking the scroll')
+				isStickingScroll = false;
+				canvas.scrollTop = canvas.scrollHeight
+			}
+		} )
+		/** @todo test with WP 6.8 non-iframed canvas */
+		stickScrollOnResize.observe( canvasIframe || canvas )
+	}
 }
 
-// The way that wheel handling is added has to be different depending on whether
-// the editor canvas is iframed because wheel handling cannot be added to the
-// iframed document from the parent window. This script is executed from two
-// documents when the editor is iframed and it’s not immediately discernable
-// whether the iframe will be available so the the branch that would add
-// handling for a non-iframe context has to determine that asynchronously.
-if ( ! location.href.startsWith('blob:') ) {
-	const editorContainer = document.querySelector('#editor')
-	const spy = new MutationObserver(() => {
-		const visualEditor = editorContainer.querySelector('.editor-visual-editor')
-		if ( visualEditor ) {
-			spy.disconnect();
-			if (
-				visualEditor.matches('.is-iframed') ||
-				// Meta box pane is absent - meta boxes are inside the editor canvas.
-				! editorContainer.querySelector('.edit-post-meta-boxes-main')
-			) return
+const getCanvas = () => {
+	const canvasWindow = window['editor-canvas']
+	return canvasWindow
+		? canvasWindow.document.documentElement
+		: /**@type {HTMLElement?}*/(document.querySelector('.block-editor-block-canvas'))
+}
 
-			makeWheelInitializer(
-				document.querySelector('.block-editor-block-canvas')
-			)()
-		}
-	})
-	spy.observe(editorContainer, {childList:true, subtree:true})
+const editorContainer = /** @type {Element} */(document.querySelector('#editor'))
+// Observes mutations within editorContainer until it can be determined whether
+// the canvas is iframe’d.
+const spy = new MutationObserver(() => {
+	const visualEditor = editorContainer.querySelector('.editor-visual-editor')
+	if ( ! visualEditor ) return
 
-	// Adds style for the interface content element’s overlay.
-	const wheelStyle = document.createElement('style')
-	wheelStyle.textContent = `
-		.\\&wheel-overlay.interface-interface-skeleton__content::before {
-			content:'';
-			position:absolute;
-			inset: 0;
-			z-index: 99999;
+	spy.disconnect();
+	const canvasWindow = window['editor-canvas'];
+	// Canvas iframe is present.
+	if ( canvasWindow ){
+		canvasWindow.onload = () => {
+			initiate(canvasWindow.document.documentElement, document)
+			reiniateOnPostTypeChange()
 		}
-	`
-	document.head.appendChild(wheelStyle)
-} else {
-	const handleWheeling = makeWheelInitializer(window.document.documentElement, window.parent.document)
-	handleWheeling()
-	let stalePostType
-	// For block themes it’s possible for the editor to switch the post type to
-	// a pattern or template part where the meta box pane is no longer available.
-	// When switching back to the post the wheel handling has to be reinitiated
-	// and this subscriber ensures that happens.
-	const { select, subscribe } = window.parent.wp.data
+	}
+	// WP 6.8 has the resizable meta box pane even without the iframe.
+	else if ( editorContainer.querySelector('.edit-post-meta-boxes-main') ) {
+		const canvas = getCanvas();
+		if ( ! canvas ) return;
+
+		initiate( canvas )
+		reiniateOnPostTypeChange()
+	}
+})
+spy.observe(editorContainer, {childList:true, subtree:true})
+
+// Adds style for the interface content element’s overlay.
+const wheelStyle = document.createElement('style')
+wheelStyle.textContent = `
+	.\\&wheel-overlay.interface-interface-skeleton__content::before {
+		content:'';
+		position:absolute;
+		inset: 0;
+		z-index: 99999;
+	}
+`
+document.head.appendChild(wheelStyle)
+
+// It’s possible for the editor to switch the post type to a pattern or
+// template part where the meta box pane is no longer available. When
+// switching back to the post the wheel handling has to be reinitiated
+// and this adds a subscriber to ensure that happens.
+const reiniateOnPostTypeChange = () => {
+	let stalePostType = ''
 	subscribe( () => {
-		const postType = select(editorStore).getCurrentPostType()
+		const postType = select(editorStore.name).getCurrentPostType()
 		if (!stalePostType) stalePostType = postType
 		else if (postType !== stalePostType) {
 			stalePostType = postType
-			if ('post' === postType) handleWheeling()
+			const canvas = getCanvas()
+			if ('post' === postType && canvas) initiate(
+				canvas,
+				document
+			)
 		}
 	}, editorStore)
 }
 
-})()
+})(window.wp)

@@ -7,30 +7,23 @@
 
 namespace s8\WP\WheelMetaBoxes;
 
-add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\content_script' );
-function content_script() {
-	// Enqueues only on 'post' screen (avoiding site editor).
-	if ( is_admin() && 'post' === get_current_screen()->base ) {
-		wp_enqueue_script(
-			's8-wheel-meta-boxes',
-			plugins_url( 'wheel-meta-boxes.js', __FILE__ ),
-			[
-				'wp-data',
-				'wp-editor',
-				'wp-edit-post',
-				'wp-preferences',
-			],
-			filemtime( plugin_dir_path( __FILE__ ) . 'wheel-meta-boxes.js' ),
-			true,
-		);
-	}
-}
-
-add_action( 'enqueue_block_editor_assets', __NAMESPACE__ . '\\sidebar' );
-function sidebar() {
+add_action( 'enqueue_block_editor_assets', __NAMESPACE__ . '\\assets' );
+function assets() {
 	// Bails unless on 'post' screen (avoiding site editor).
 	if ('post' !== get_current_screen()->base) return;
 
+	wp_enqueue_script(
+		's8-wheel-meta-boxes',
+		plugins_url( 'wheel-meta-boxes.js', __FILE__ ),
+		[
+			'wp-data',
+			'wp-editor',
+			'wp-edit-post',
+			'wp-preferences',
+		],
+		filemtime( plugin_dir_path( __FILE__ ) . 'wheel-meta-boxes.js' ),
+		true,
+	);
 	wp_enqueue_script(
 		's8-wheel-meta-boxes-sidebar',
 		plugins_url( 'sidebar.js', __FILE__ ),
