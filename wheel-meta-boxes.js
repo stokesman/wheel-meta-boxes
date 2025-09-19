@@ -19,8 +19,6 @@ const isScrollMax = element => {
  * @param {HTMLElement} metaPane
  */
 const activate = ( canvas, metaPane ) => {
-	// Bails when the metaPane doesn’t exist (editing patterns/template parts).
-	if ( ! metaPane ) return
 	const editorDocument = metaPane.ownerDocument
 
 	const getThreshold = () =>
