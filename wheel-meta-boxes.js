@@ -195,10 +195,9 @@ document.head.appendChild(wheelStyle)
 
 /** @param {() => (HTMLElement | null)} canvasGetter */
 const initiate = ( canvasGetter ) => {
-	/** @type {(() => void)=} */
-	let deactivator;
+	let deactivator = () => {};
 	const activator = () => {
-		deactivator?.();
+		deactivator();
 		const canvas = canvasGetter();
 		const metaPane = getMetaPane();
 		if ( canvas && metaPane ) deactivator = activate( canvas, metaPane )
