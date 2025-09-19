@@ -28,7 +28,6 @@ const activate = ( canvas, metaPane ) => {
 
 	/** @type {import('$types').Mode} */
 	const mode = select(preferencesStore).get('s8/wheel-meta-boxes', 'mode')
-	console.log(mode, 'handle wheeling', {canvas, metaPane})
 
 	/** @param {Number} nextHeight */
 	const applyHeight = nextHeight => {
@@ -112,7 +111,6 @@ const activate = ( canvas, metaPane ) => {
 	// Meta pane wheel handling depending on mode.
 	if ( mode === 'gradual' )
 		cleanlyListen( metaPane, 'wheel', ( event ) => {
-			console.log('meta wheel gradual')
 			if ( metaPaneLiner.scrollTop === 0 && isScrollMax( canvas ) ) {
 				adjustSplit( event.deltaY )
 				isStickingScroll = true
@@ -121,7 +119,6 @@ const activate = ( canvas, metaPane ) => {
 		}, { passive: false })
 	else
 		cleanlyListen( metaPane, 'wheel', ( event ) => {
-			console.log('meta wheel whole', mode)
 			if ( event.deltaY <= -getThreshold() ) {
 				if ( metaPaneLiner.scrollTop === 0 ) {
 					const { minHeight } = metaPane.style
@@ -133,7 +130,6 @@ const activate = ( canvas, metaPane ) => {
 
 	// Canvas wheel handling. Single listener used since passive suffices for either mode.
 	cleanlyListen(canvas, 'wheel', ( event ) => {
-		console.log('canvas wheel', mode)
 		if ( isScrollMax( canvas ) ) {
 			if ( mode === 'gradual' ) {
 				adjustSplit( event.deltaY )
@@ -153,10 +149,8 @@ const activate = ( canvas, metaPane ) => {
 	if ( mode === 'gradual' ) {
 		const canvasIframe = canvas.ownerDocument.defaultView?.frameElement
 		const stickScrollOnResize = new ResizeObserver( ([{ borderBoxSize }]) => {
-			console.log('canvas resize');
 			[{ blockSize: canvasHeight }] = borderBoxSize
 			if ( isStickingScroll ) {
-				console.log('sticking the scroll')
 				isStickingScroll = false;
 				canvas.scrollTop = canvas.scrollHeight
 			}
