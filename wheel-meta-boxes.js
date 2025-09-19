@@ -19,17 +19,16 @@ const isScrollMax = element => {
  * @param {HTMLElement} metaPane
  */
 const activate = ( canvas, metaPane ) => {
-	console.log('handle wheeling', {canvas, metaPane})
 	// Bails when the metaPane doesn’t exist (editing patterns/template parts).
 	if ( ! metaPane ) return
 	const editorDocument = metaPane.ownerDocument
 
 	const getThreshold = () =>
 		select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
-	const getMode = () =>
-		select(preferencesStore).get('s8/wheel-meta-boxes', 'mode')
-	const getFreeWheeling = () =>
-		select(preferencesStore).get('s8/wheel-meta-boxes', 'freewheeling')
+
+	/** @type {import('$types').Mode} */
+	const mode = select(preferencesStore).get('s8/wheel-meta-boxes', 'mode')
+	console.log(mode, 'handle wheeling', {canvas, metaPane})
 
 	/** @param {Number} nextHeight */
 	const applyHeight = nextHeight => {
@@ -53,98 +52,119 @@ const activate = ( canvas, metaPane ) => {
 		applyHeight( nextHeight )
 	}
 
-	const interfaceContent = /**@type {HTMLElement}*/(metaPane.parentElement)
-	/** @param {WheelEvent} event */
-	const hotKeyAdjustSplit = event => {
-		// In Firefox wheel events lingeringly dispatch on targets which can make scrolling
-		// that started before holding the Control key continue unexpectedly when adjusting
-		// the split. Preventing default cures it (besides maybe a sliver).
-		event.preventDefault()
-		adjustSplit( event.deltaY )
+	const cleanSet = new Set;
+	const cleanUp = () => cleanSet.forEach(clean => clean())
+	/**
+	 * Convenient way to add listeners and add a removal callback for easy cleanup.
+	 * @template {EventTarget} T
+	 * @template {keyof HTMLElementEventMap} E
+	 * @param {T} target
+	 * @param {E} type
+	 * @param {(event: HTMLElementEventMap[E]) => void} listener
+	 * @param {Parameters<EventTarget['addEventListener']>[2]=} options
+	 */
+	const cleanlyListen = (target, type, listener, options) => {
+		target.addEventListener(type, listener, options);
+		cleanSet.add(() => target.removeEventListener(type, listener, options))
 	}
-	// Toggles an overlay on Control key press/release for adjusting the split.
-	// While the listeners added to the meta pane and the canvas could be used
-	// for this same feature, it doesn’t work quite as seamlessly.
-	editorDocument.addEventListener('keydown', ({key}) => {
-		if (getFreeWheeling() && key === 'Control') {
-			interfaceContent.classList.add('&wheel-overlay')
-			interfaceContent.addEventListener('wheel', hotKeyAdjustSplit)
-			// On macOS there’s a chance someone could be using the Control key
-			// to alternate click and the overlay may block the intended target.
-			// To avoid that, this hides the overlay on pointerdown.
-			interfaceContent.addEventListener('pointerdown', () => {
+
+	// Freewheeling logic
+	if ( select(preferencesStore).get('s8/wheel-meta-boxes', 'freewheeling') ) {
+		const interfaceContent = /**@type {HTMLElement}*/(metaPane.parentElement)
+		/** @param {WheelEvent} event */
+		const hotKeyAdjustSplit = event => {
+			// Prevents default for a couple of reasons:
+			// 1. It mostly cures an issue in Firefox in which wheel events lingeringly
+			// dispatch on targets which can make scrolling that started before holding
+			// the Control key continue unexpectedly when adjusting the split.
+			// 2. It avoids browser zooming.
+			event.preventDefault()
+			adjustSplit( event.deltaY )
+		}
+		// Toggles an overlay on Control key press/release for adjusting the split.
+		cleanlyListen(editorDocument, 'keydown', ({key}) => {
+			if (key === 'Control') {
+				interfaceContent.classList.add('&wheel-overlay')
+				interfaceContent.addEventListener('wheel', hotKeyAdjustSplit)
+				// On macOS there’s a chance someone could be using the Control key
+				// to alternate click and the overlay may block the intended target.
+				// To avoid that, this hides the overlay on pointerdown.
+				interfaceContent.addEventListener('pointerdown', () => {
+					interfaceContent.classList.remove('&wheel-overlay')
+					interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
+				}, {once: true})
+			}
+		})
+		cleanlyListen(editorDocument, 'keyup', ({key}) => {
+			if (key === 'Control') {
 				interfaceContent.classList.remove('&wheel-overlay')
 				interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
-			}, {once: true})
-		}
-	})
-	editorDocument.addEventListener('keyup', ({key}) => {
-		if (getFreeWheeling() && key === 'Control') {
-			interfaceContent.classList.remove('&wheel-overlay')
-			interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
-		}
-	})
+			}
+		})
+	}
+
+	// All done if mode is 'none';
+	if ( mode === 'none' ) return cleanUp;
 
 	let isStickingScroll = false;
-
 	const metaPaneLiner = /**@type {HTMLElement}*/(metaPane.querySelector('.edit-post-layout__metaboxes'))
-	/** @param {WheelEvent} event */
-	const onMetaWheel = ( event ) => {
-		console.log('meta wheel')
-		switch ( getMode() ) {
-			case 'gradual':
-				if ( metaPaneLiner.scrollTop === 0 && isScrollMax( canvas ) ) {
-					adjustSplit( event.deltaY )
-					isStickingScroll = true
-					if ( canvasIframeHeight > 0 ) event.preventDefault();
-				}
-				break;
-			case 'whole':
-				if ( event.deltaY <= -getThreshold() ) {
-					if ( metaPaneLiner.scrollTop === 0 ) {
-						const { minHeight } = metaPane.style
-						metaPane.style.height = minHeight
-						applyHeight( parseFloat(minHeight) )
-					}
-				}
-		}
-	}
-	metaPane.addEventListener('wheel', onMetaWheel, { passive: false })
 
-	/** @param {WheelEvent} event */
-	const onCanvasWheel = ( event ) => {
+	// Meta pane wheel handling depending on mode.
+	if ( mode === 'gradual' )
+		cleanlyListen( metaPane, 'wheel', ( event ) => {
+			console.log('meta wheel gradual')
+			if ( metaPaneLiner.scrollTop === 0 && isScrollMax( canvas ) ) {
+				adjustSplit( event.deltaY )
+				isStickingScroll = true
+				if ( canvasHeight > 0 ) event.preventDefault();
+			}
+		}, { passive: false })
+	else
+		cleanlyListen( metaPane, 'wheel', ( event ) => {
+			console.log('meta wheel whole', mode)
+			if ( event.deltaY <= -getThreshold() ) {
+				if ( metaPaneLiner.scrollTop === 0 ) {
+					const { minHeight } = metaPane.style
+					metaPane.style.height = minHeight
+					applyHeight( parseFloat(minHeight) )
+				}
+			}
+		}, { passive: true })
+
+	// Canvas wheel handling. Single listener used since passive suffices for either mode.
+	cleanlyListen(canvas, 'wheel', ( event ) => {
+		console.log('canvas wheel', mode)
 		if ( isScrollMax( canvas ) ) {
-			switch( getMode() ) {
-				case 'gradual':
-					adjustSplit( event.deltaY )
-					isStickingScroll = true
-					break;
-				case 'whole':
-					if ( event.deltaY >= getThreshold() ) {
-						const { maxHeight } = metaPane.style
-						metaPane.style.height = maxHeight
-						applyHeight( parseFloat( maxHeight ) )
-					}
+			if ( mode === 'gradual' ) {
+				adjustSplit( event.deltaY )
+				isStickingScroll = true
+			} else {
+				if ( event.deltaY >= getThreshold() ) {
+					const { maxHeight } = metaPane.style
+					metaPane.style.height = maxHeight
+					applyHeight( parseFloat( maxHeight ) )
+				}
 			}
 		}
-	}
-	canvas.addEventListener('wheel', onCanvasWheel, { passive: true })
+	}, { passive: true })
 
-	let canvasIframeHeight = -1
-	if ( getMode() === 'gradual' ) {
+	// Tracks canvas height for use with gradual mode.
+	let canvasHeight = -1
+	if ( mode === 'gradual' ) {
 		const canvasIframe = canvas.ownerDocument.defaultView?.frameElement
 		const stickScrollOnResize = new ResizeObserver( ([{ borderBoxSize }]) => {
 			console.log('canvas resize');
-			[{ blockSize: canvasIframeHeight }] = borderBoxSize
+			[{ blockSize: canvasHeight }] = borderBoxSize
 			if ( isStickingScroll ) {
 				console.log('sticking the scroll')
 				isStickingScroll = false;
 				canvas.scrollTop = canvas.scrollHeight
 			}
 		} )
-		/** @todo test with WP 6.8 non-iframed canvas */
 		stickScrollOnResize.observe( canvasIframe || canvas )
+		cleanSet.add(() => stickScrollOnResize.disconnect())
 	}
+	return cleanUp
 }
 
 const getCanvas = () => window['editor-canvas']?.document.documentElement ?? null
@@ -181,18 +201,21 @@ wheelStyle.textContent = `
 `
 document.head.appendChild(wheelStyle)
 
-// It’s possible for the editor to switch the post type to a pattern or
-// template part where the meta box pane is no longer available. When
-// switching back to the post the wheel handling has to be reinitiated
-// and this adds a subscriber to ensure that happens.
 /** @param {() => (HTMLElement | null)} canvasGetter */
 const initiate = ( canvasGetter ) => {
+	/** @type {(() => void)=} */
+	let deactivator;
 	const activator = () => {
+		deactivator?.();
 		const canvas = canvasGetter();
 		const metaPane = getMetaPane();
-		if ( canvas && metaPane ) activate( canvas, metaPane )
+		if ( canvas && metaPane ) deactivator = activate( canvas, metaPane )
 	}
 	activator();
+	// It’s possible for the editor to switch the post type to a pattern or
+	// template part where the meta box pane is no longer available. When
+	// switching back to the post the wheel handling has to be reactivated
+	// and this adds a subscriber to ensure that happens.
 	let stalePostType = ''
 	subscribe( () => {
 		const postType = select(editorStore.name).getCurrentPostType()
@@ -202,6 +225,16 @@ const initiate = ( canvasGetter ) => {
 			if ('post' === postType) activator();
 		}
 	}, editorStore)
+	// Subscribes to mode switches to reactivate moded handling.
+	let staleMode = ''
+	subscribe(() => {
+		const mode = select(preferencesStore.name).get('s8/wheel-meta-boxes', 'mode')
+		if (!staleMode) staleMode = mode
+		else if (mode !== staleMode) {
+			staleMode = mode
+			activator();
+		}
+	}, preferencesStore)
 }
 
 })(window.wp)
