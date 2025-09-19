@@ -1,5 +1,8 @@
 {
 	"compilerOptions": {
+		"paths": {
+			"$types": ["./index.d.ts"]
+		},
 		"target": "es2018",
 		"moduleResolution": "nodenext",
 		"jsx": "preserve",

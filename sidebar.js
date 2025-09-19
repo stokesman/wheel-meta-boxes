@@ -18,7 +18,7 @@ const { isAppleOS } = wp.keycodes
 const { registerPlugin } = wp.plugins
 const { store: preferencesStore } = wp.preferences
 
-/** @typedef {'gradual'|'whole'|'none'} Mode */
+/** @typedef {import('$types').Mode} Mode */
 
 dispatch( preferencesStore ).setDefaults(
 	's8/wheel-meta-boxes',

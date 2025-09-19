@@ -15,3 +15,5 @@ export declare global {
 		};
 	}
 }
+
+export type Mode = 'gradual'|'whole'|'none'
