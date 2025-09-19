@@ -2,6 +2,7 @@
 
 const { createElement: m } = wp.element
 const {
+	Button,
 	Card,
 	CardBody,
 	CardDivider,
@@ -85,7 +86,7 @@ const Sidebar = () => {
 				m(
 					ToggleGroupControl,
 					{
-						label:'Behavior at bounds',
+						label:'Scroll bounded behavior',
 						onChange: setMode,
 						value: mode,
 						isBlock: true,
@@ -102,6 +103,7 @@ const Sidebar = () => {
 					m( NumberControl, {
 						label: 'Threshold',
 						value: `${threshold}`,
+						/** @type {(v: string) => void} */
 						onChange: v => {
 							set('s8/wheel-meta-boxes', 'threshold', parseFloat(v))
 						},
@@ -115,16 +117,26 @@ const Sidebar = () => {
 						'div',
 						{ className: 's8-wheel-meta-boxes-read-out' },
 						m('span', null, 'Last maximum input:' ),
-						m('span', { ref: effectTrackImpulse, className: 's8-wheel-meta-boxes-read-out/value' }, '0' ),
-						m('small', null, 'Use your mouse wheel or scroll gesture on touch devices to gauge what threshold value will work best for you.')
+						m(Button, {
+							ref: effectTrackImpulse,
+							className: 's8-wheel-meta-boxes-read-out/value',
+							variant: 'tertiary',
+							size: 'small',
+							label: 'Press to use this value',
+							showTooltip: true,
+							/** @type {(event:MouseEvent & {currentTarget:HTMLButtonElement}) => void} */
+							onClick: ({currentTarget}) =>
+								set('s8/wheel-meta-boxes', 'threshold', parseFloat(currentTarget.textContent))
+						}, '0' ),
+						m('small', null, 'Use your mouse wheel or scroll gesture to gauge what threshold value will work best for you.')
 					)
 				] : []),
 				m( CardDivider ),
 				m( ToggleControl, {
-					label: 'Freewheeling',
+					label: 'Freewheeling behavior',
 					checked: freewheeling,
 					onChange: setFreewheeling,
-					help: `Enable directly adjusting the split without scrolling while pressing the ${ modifierKey} key.`,
+					help: `Enable adjusting the split by pressing the ${ modifierKey} key and using the mouse wheel or scroll gesture.`,
 					__nextHasNoMarginBottom: true
 				})
 			)
