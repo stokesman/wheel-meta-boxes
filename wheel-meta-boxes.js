@@ -225,13 +225,16 @@ const initiate = ( canvasGetter ) => {
 			if ('post' === postType) activator();
 		}
 	}, editorStore)
-	// Subscribes to mode switches to reactivate moded handling.
-	let staleMode = ''
+	// Subscribes to mode and freewheeling preference changes to reactivate handling.
+	let stalePrefsKey = ''
 	subscribe(() => {
-		const mode = select(preferencesStore.name).get('s8/wheel-meta-boxes', 'mode')
-		if (!staleMode) staleMode = mode
-		else if (mode !== staleMode) {
-			staleMode = mode
+		const prefsKey = `${
+			select(preferencesStore.name).get('s8/wheel-meta-boxes', 'mode') }-${
+			select(preferencesStore.name).get('s8/wheel-meta-boxes', 'freewheeling')
+		}`
+		if (!stalePrefsKey) stalePrefsKey = prefsKey
+		else if (prefsKey !== stalePrefsKey) {
+			stalePrefsKey = prefsKey
 			activator();
 		}
 	}, preferencesStore)
