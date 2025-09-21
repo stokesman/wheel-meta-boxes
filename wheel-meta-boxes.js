@@ -208,6 +208,14 @@ wheelStyle.textContent = `
 `
 document.head.appendChild(wheelStyle)
 
+activate.dependentPreferences = ['mode', 'freewheeling', 'setsOnExit']
+const getPrefsKey = () => {
+	let key = ''
+	for ( const prefName of activate.dependentPreferences )
+		key += `${select(preferencesStore.name).get('s8/wheel-meta-boxes', prefName)}-`
+	return key
+}
+
 /** @param {() => (HTMLElement | null)} canvasGetter */
 const initiate = ( canvasGetter ) => {
 	let deactivator = () => {};
@@ -222,24 +230,19 @@ const initiate = ( canvasGetter ) => {
 	// template part where the meta box pane is no longer available. When
 	// switching back to the post the wheel handling has to be reactivated
 	// and this adds a subscriber to ensure that happens.
-	let stalePostType = ''
+	let stalePostType = select(editorStore.name).getCurrentPostType()
 	subscribe( () => {
 		const postType = select(editorStore.name).getCurrentPostType()
-		if (!stalePostType) stalePostType = postType
-		else if (postType !== stalePostType) {
+		if (postType !== stalePostType) {
 			stalePostType = postType
 			if ('post' === postType) activator();
 		}
 	}, editorStore)
-	// Subscribes to mode and freewheeling preference changes to reactivate handling.
-	let stalePrefsKey = ''
+	// Subscribes to preference store changes to reactivate.
+	let stalePrefsKey = getPrefsKey()
 	subscribe(() => {
-		const prefsKey = `${
-			select(preferencesStore.name).get('s8/wheel-meta-boxes', 'mode') }-${
-			select(preferencesStore.name).get('s8/wheel-meta-boxes', 'freewheeling')
-		}`
-		if (!stalePrefsKey) stalePrefsKey = prefsKey
-		else if (prefsKey !== stalePrefsKey) {
+		const prefsKey = getPrefsKey()
+		if (prefsKey !== stalePrefsKey) {
 			stalePrefsKey = prefsKey
 			activator();
 		}
