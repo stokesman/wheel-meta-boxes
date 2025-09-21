@@ -57,15 +57,29 @@ const activate = ( canvas, metaPane ) => {
 	/**
 	 * Convenient way to add listeners and add a removal callback for easy cleanup.
 	 * @template {EventTarget} T
-	 * @template {keyof HTMLElementEventMap} E
+	 * @template {keyof HTMLElementEventMap | keyof DocumentEventMap} E
 	 * @param {T} target
 	 * @param {E} type
-	 * @param {(event: HTMLElementEventMap[E]) => void} listener
+	 * @param {(event: (HTMLElementEventMap & DocumentEventMap)[E]) => void} listener
 	 * @param {Parameters<EventTarget['addEventListener']>[2]=} options
 	 */
 	const cleanlyListen = (target, type, listener, options) => {
 		target.addEventListener(type, listener, options);
 		cleanSet.add(() => target.removeEventListener(type, listener, options))
+	}
+
+	// Minimizes the pane whenever the document isn't visible if the preference is
+	// to start minimized. Doing it this way instead of minimizing it upon initiation
+	// ensures the pane doesn't briefly fill space before that.
+	if ( select(preferencesStore).get('s8/wheel-meta-boxes', 'setsOnExit') ) {
+		let stashedHeight = '';
+		cleanlyListen(editorDocument, 'visibilitychange', () => {
+			if (editorDocument.hidden) {
+				stashedHeight = metaPane.style.height
+				applyHeight( 0 )
+			} else
+				applyHeight( parseFloat( stashedHeight ) )
+		})
 	}
 
 	// Freewheeling logic

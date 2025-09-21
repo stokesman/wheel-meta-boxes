@@ -23,7 +23,7 @@ const { store: preferencesStore } = wp.preferences
 
 dispatch( preferencesStore ).setDefaults(
 	's8/wheel-meta-boxes',
-	{ freewheeling: true, mode: 'gradual', threshold: 5 }
+	{ freewheeling: true, mode: 'gradual', threshold: 5, setsOnExit: true }
 );
 
 const modeHelpMap = {
@@ -36,12 +36,13 @@ const modifierKey = isAppleOS() ? 'control' : 'Ctrl';
 
 const Sidebar = () => {
 	/** @type {[boolean, Mode, number]} */
-	const [ freewheeling, mode, threshold ] = useSelect( $ => {
+	const [ freewheeling, mode, threshold, setsOnExit ] = useSelect( $ => {
 		const prefs = $( preferencesStore )
 		return [
 			prefs.get('s8/wheel-meta-boxes', 'freewheeling'),
 			prefs.get('s8/wheel-meta-boxes', 'mode'),
 			prefs.get('s8/wheel-meta-boxes', 'threshold'),
+			prefs.get('s8/wheel-meta-boxes', 'setsOnExit'),
 		]
 	}, [] )
 	const { set } = useDispatch( preferencesStore )
@@ -137,6 +138,14 @@ const Sidebar = () => {
 					checked: freewheeling,
 					onChange: setFreewheeling,
 					help: `Enable adjusting the split by pressing the ${ modifierKey} key and using the mouse wheel or scroll gesture.`,
+					__nextHasNoMarginBottom: true
+				}),
+				m( CardDivider ),
+				m( ToggleControl, {
+					label: 'Start minimized',
+					checked: setsOnExit,
+					onChange: () => set('s8/wheel-meta-boxes', 'setsOnExit', ! setsOnExit),
+					help: `Ensure the meta box pane is minimized when opening a post.`,
 					__nextHasNoMarginBottom: true
 				})
 			)
