@@ -120,7 +120,6 @@ const activate = ( canvas, metaPane ) => {
 			if ( event.deltaY <= -getThreshold() ) {
 				if ( metaPaneLiner.scrollTop === 0 ) {
 					const { minHeight } = metaPane.style
-					metaPane.style.height = minHeight
 					applyHeight( parseFloat(minHeight) )
 				}
 			}
@@ -135,7 +134,6 @@ const activate = ( canvas, metaPane ) => {
 			} else {
 				if ( event.deltaY >= getThreshold() ) {
 					const { maxHeight } = metaPane.style
-					metaPane.style.height = maxHeight
 					applyHeight( parseFloat( maxHeight ) )
 				}
 			}
