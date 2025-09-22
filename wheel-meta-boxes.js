@@ -40,10 +40,13 @@ const activate = ( canvas, metaPane ) => {
 	/** @param {Number} by */
 	const adjustSplit = ( by ) => {
 		const { height, minHeight, maxHeight } = metaPane.style
+		const fromHeight = height === 'auto'
+			? metaPane.offsetHeight
+			: parseFloat( height );
 		const nextHeight = Math.max(
 			parseFloat(minHeight), Math.min(
 				parseFloat(maxHeight),
-				parseFloat(height) + by
+				fromHeight + by
 			)
 		)
 		applyHeight( nextHeight )
