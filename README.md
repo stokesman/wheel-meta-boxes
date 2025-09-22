@@ -7,4 +7,4 @@ This facilitates access to the meta box pane through use of the mouse wheel or t
 2. **At will, in combination with keyboard input**<br/>
    Press and hold the <kbd>Control</kbd>/<kbd>Ctrl</kbd> key and use the mouse wheel or touchpad scroll gesture over either the post content or the meta boxes to adjust the split while maintaining scroll positions in both the content and the meta boxes.
 
-Both of the behaviors aren enabled by default. If either one isn't helpful it can be disabled in the sidebar.
+Both of the behaviors are enabled by default. If either one isn't helpful it can be disabled in the sidebar.
