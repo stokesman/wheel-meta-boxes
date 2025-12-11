@@ -176,37 +176,18 @@ const activate = ( canvas, metaPane ) => {
 
 const getCanvas = () => window['editor-canvas']?.document.documentElement ?? null
 const getInlineCanvas = () => /**@type {HTMLElement?}*/(document.querySelector('.block-editor-block-canvas'))
-const getMetaPane = () => /**@type {HTMLElement?}*/(editorContainer.querySelector('.edit-post-meta-boxes-main'))
+const getMetaPane = () => /**@type {HTMLElement?}*/(document.querySelector('.edit-post-meta-boxes-main'))
 
-const editorContainer = /** @type {Element} */(document.querySelector('#editor'))
-// Observes mutations within editorContainer until it can be determined whether
-// the canvas is iframe’d.
-const spy = new MutationObserver(() => {
-	const visualEditor = editorContainer.querySelector('.editor-visual-editor')
-	if ( ! visualEditor ) return
-
-	spy.disconnect();
-	if ( ! getMetaPane() ) return;
-
-	const canvasWindow = window['editor-canvas'];
-	// Canvas iframe is present.
-	if ( canvasWindow ) canvasWindow.onload = () => initiate( getCanvas )
-	// WP 6.8 has the resizable meta box pane even without the iframe.
-	else if ( getInlineCanvas() ) initiate( getInlineCanvas )
-})
-spy.observe(editorContainer, {childList:true, subtree:true})
-
-// Adds style for the interface content element’s overlay.
-const wheelStyle = document.createElement('style')
-wheelStyle.textContent = `
-	.\\&wheel-overlay.interface-interface-skeleton__content::before {
-		content:'';
-		position:absolute;
-		inset: 0;
-		z-index: 99999;
-	}
-`
-document.head.appendChild(wheelStyle)
+window.addEventListener(
+	'editorcanvascomplete',
+	({detail: isIframed}) => {
+		if ( isIframed ) initiate( getCanvas )
+		// WP 6.8 has the resizable meta box pane even without the iframe and a
+		// classname on the block canvas, so if that’s found, initiate.
+		else if ( getInlineCanvas() ) initiate( getInlineCanvas )
+	},
+	{ once: true }
+);
 
 activate.dependentPreferences = ['mode', 'freewheeling', 'setsOnExit']
 const getPrefsKey = () => {
@@ -247,6 +228,20 @@ const initiate = ( canvasGetter ) => {
 			activator();
 		}
 	}, preferencesStore)
+
+	// Adds style for the interface content element’s overlay. Ideally, this might
+	// only be done when the 'freewheeling' preference is true but it’d want a
+	// cleanup routine as well.
+	const wheelStyle = document.createElement('style')
+	wheelStyle.textContent = `
+		.\\&wheel-overlay.interface-interface-skeleton__content::before {
+			content:'';
+			position:absolute;
+			inset: 0;
+			z-index: 99999;
+		}
+	`
+	document.head.appendChild(wheelStyle)
 }
 
 })(window.wp)
