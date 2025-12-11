@@ -122,14 +122,33 @@ const activate = ( canvas, metaPane ) => {
 
 	let isStickingScroll = false;
 	const metaPaneLiner = /**@type {HTMLElement}*/(metaPane.querySelector('.edit-post-layout__metaboxes'))
+	const gradualModeContraDetachmentBuffer = () => {
+		const self = gradualModeContraDetachmentBuffer
+		self.isActive = true;
+		clearTimeout( self.tId );
+		self.tId = setTimeout( () => {
+			self.isActive = false;
+			console.log('deactivating gradualModeContraDetachmentBuffer')
+		}, 1000 );
+	}
+	gradualModeContraDetachmentBuffer.isActive = false
+	gradualModeContraDetachmentBuffer.tId = -1
 
 	// Meta pane wheel handling depending on mode.
 	if ( mode === 'gradual' )
 		cleanlyListen( metaPane, 'wheel', ( event ) => {
-			if ( metaPaneLiner.scrollTop === 0 && isScrollMax( canvas ) ) {
+			const isScrollBounded = metaPaneLiner.scrollTop === 0 && isScrollMax( canvas )
+			if (
+				isScrollBounded ||
+				gradualModeContraDetachmentBuffer.isActive
+			) {
+				// const el = event.target.ownerDocument.elementFromPoint
+				console.log('meta pane', {bufferState: gradualModeContraDetachmentBuffer.isActive, isScrollBounded})
+				// console.log('meta pane', {elFromPoint: document.elementFromPoint(event.clientX, event.clientY)})
 				adjustSplit( event.deltaY )
 				isStickingScroll = true
-				if ( canvasHeight > 0 ) event.preventDefault();
+				gradualModeContraDetachmentBuffer()
+				if ( canvasHeight > 0 ) event.preventDefault()
 			}
 		}, { passive: false })
 	else
@@ -144,15 +163,20 @@ const activate = ( canvas, metaPane ) => {
 
 	// Canvas wheel handling. Single listener used since passive suffices for either mode.
 	cleanlyListen(canvas, 'wheel', ( event ) => {
-		if ( isScrollMax( canvas ) ) {
-			if ( mode === 'gradual' ) {
+		if ( mode === 'gradual' ) {
+			if (
+				isScrollMax( canvas ) ||
+				gradualModeContraDetachmentBuffer.isActive
+			) {
+				console.log('canvas', {bufferState: gradualModeContraDetachmentBuffer.isActive, isScrollMax: isScrollMax(canvas)})
 				adjustSplit( event.deltaY )
 				isStickingScroll = true
-			} else {
-				if ( event.deltaY >= getThreshold() ) {
-					const { maxHeight } = metaPane.style
-					applyHeight( parseFloat( maxHeight ) )
-				}
+				gradualModeContraDetachmentBuffer()
+			}
+		} else {
+			if ( isScrollMax( canvas ) && event.deltaY >= getThreshold() ) {
+				const { maxHeight } = metaPane.style
+				applyHeight( parseFloat( maxHeight ) )
 			}
 		}
 	}, { passive: true })
