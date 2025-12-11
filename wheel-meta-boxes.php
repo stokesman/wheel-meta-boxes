@@ -7,6 +7,24 @@
 
 namespace s8\WP\WheelMetaBoxes;
 
+const version = '0.1';
+
+/**
+ * Enqueue helper to always cache-bust in development (WP_DEBUG).
+ * @return array{string, string}
+ */
+function get_asset_src_and_version( string $path ): array {
+	$version = version;
+	if ( WP_DEBUG ) {
+		$mtime = filemtime( plugin_dir_path( __FILE__ ) . $path );
+		if ( $mtime !== false ) $version = "$mtime";
+	}
+	return [
+		plugins_url( $path, __FILE__ ),
+		$version
+	];
+}
+
 // Adds an SVG with image load event to dispatch a custom event letting the UI code know
 // that the canvas is available and whether it’s iframed.
 add_filter( 'block_editor_settings_all', __NAMESPACE__ . '\add_canvas_informant', 10 );
@@ -43,21 +61,23 @@ function assets() {
 	// Bails unless on 'post' screen (avoiding site editor).
 	if ('post' !== get_current_screen()->base) return;
 
+	[ $src, $version ] = get_asset_src_and_version( 'wheel-meta-boxes.js' );
 	wp_enqueue_script(
 		's8-wheel-meta-boxes',
-		plugins_url( 'wheel-meta-boxes.js', __FILE__ ),
+		$src,
 		[
 			'wp-data',
 			'wp-editor',
 			'wp-edit-post',
 			'wp-preferences',
 		],
-		filemtime( plugin_dir_path( __FILE__ ) . 'wheel-meta-boxes.js' ),
+		$version,
 		true,
 	);
+	[ $src, $version ] = get_asset_src_and_version( 'sidebar.js' );
 	wp_enqueue_script(
 		's8-wheel-meta-boxes-sidebar',
-		plugins_url( 'sidebar.js', __FILE__ ),
+		$src,
 		[
 			'wp-components',
 			'wp-compose',
@@ -66,13 +86,14 @@ function assets() {
 			'wp-plugins',
 			'wp-preferences',
 		],
-		filemtime( plugin_dir_path( __FILE__ ) . 'sidebar.js' ),
+		$version,
 		true
 	);
+	[ $src, $version ] = get_asset_src_and_version( 'sidebar.css' );
 	wp_enqueue_style(
 		's8-wheel-meta-boxes-sidebar',
-		plugins_url( 'sidebar.css', __FILE__ ),
+		$src,
 		[],
-		filemtime( plugin_dir_path( __FILE__ ) . 'sidebar.css' )
+		$version
 	);
 }
