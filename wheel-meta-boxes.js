@@ -222,6 +222,10 @@ const activate = ( canvas, metaPane ) => {
 	}
 	gradualModeContraDetachmentBuffer.isActive = false
 	gradualModeContraDetachmentBuffer.tId = -1
+	const kill = () => {
+		clearTimeout(gradualModeContraDetachmentBuffer.tId)
+		gradualModeContraDetachmentBuffer.isActive = false
+	}
 
 	// Meta pane wheel handling depending on mode.
 	if ( mode === 'gradual' )
@@ -268,7 +272,11 @@ const activate = ( canvas, metaPane ) => {
 			[{ blockSize: canvasHeight }] = borderBoxSize
 			if ( isStickingScroll ) {
 				isStickingScroll = false;
-				canvas.scrollTop = canvas.scrollHeight
+				// If the canvas is maximized immediately cancels the keep-alive for the resize engagement.
+				if (maxHeight - minHeight - canvasHeight < 1)
+					kill()
+				else
+					canvas.scrollTop = canvas.scrollHeight
 			}
 		} )
 		stickScrollOnResize.observe( canvasIframe || canvas )
