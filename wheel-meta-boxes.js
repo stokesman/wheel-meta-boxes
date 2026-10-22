@@ -79,6 +79,13 @@ const activate = ( canvas, metaPane ) => {
 	/** @type {import('$types').Mode} */
 	const mode = select(preferencesStore).get('s8/wheel-meta-boxes', 'mode')
 
+	/** @param {boolean} isOpen */
+	const setIsOpen = isOpen => dispatch(preferencesStore).set(
+		editPostStore.name,
+		'metaBoxesMainIsOpen',
+		isOpen
+	)
+
 	/** @param {Number} nextHeight */
 	const applyHeight = nextHeight => {
 		metaPane.style.height = `${nextHeight}px`
@@ -88,11 +95,7 @@ const activate = ( canvas, metaPane ) => {
 			nextHeight
 		)
 		// This calls dispatch more than necessary but maybe okay for now.
-		dispatch(preferencesStore).set(
-			editPostStore.name,
-			'metaBoxesMainIsOpen',
-			nextHeight > minHeight
-		)
+		setIsOpen(nextHeight > minHeight)
 	}
 
 	/** @param {Number} by */
@@ -130,13 +133,8 @@ const activate = ( canvas, metaPane ) => {
 	// to start minimized. Doing it this way instead of minimizing it upon initiation
 	// ensures the pane doesn't briefly fill space before that.
 	if ( select(preferencesStore).get('s8/wheel-meta-boxes', 'setsOnExit') ) {
-		let stashedHeight = '';
 		cleanlyListen(editorDocument, 'visibilitychange', () => {
-			if (editorDocument.hidden) {
-				stashedHeight = metaPane.style.height
-				applyHeight( 0 )
-			} else
-				applyHeight( parseFloat( stashedHeight ) )
+			setIsOpen( ! editorDocument.hidden )
 		})
 	}
 
