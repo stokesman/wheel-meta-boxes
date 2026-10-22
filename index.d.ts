@@ -14,6 +14,7 @@ declare global {
 			editPost: typeof import('@wordpress/edit-post')
 			element: typeof import('@wordpress/element')
 			keycodes: typeof import('@wordpress/keycodes')
+			notices: typeof import('@wordpress/notices')
 			plugins: typeof import('@wordpress/plugins')
 			preferences: typeof import('@wordpress/preferences')
 		}

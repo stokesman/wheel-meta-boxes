@@ -1,9 +1,12 @@
 ((wp) => {
 
-const { dispatch, select, subscribe } = wp.data
-const { store: editorStore } = wp.editor
-const { store: editPostStore } = wp.editPost
-const { store: preferencesStore } = wp.preferences
+const {
+	data: { dispatch, select, subscribe },
+	editor: { store: editorStore },
+	editPost: { store: editPostStore },
+	preferences: { store: preferencesStore },
+	notices: { store: noticesStore },
+} = wp
 
 /** @param {Element} element */
 const isScrollMax = element => {
@@ -15,11 +18,60 @@ const isScrollMax = element => {
 }
 
 /**
+ * Observes sizes of elements that affect the height constraints of the meta pane.
+ * @param {HTMLElement} node
+ * @param {(contraints: {min: number, max: number}) => void} setHeightConstraints
+ * @returns
+ */
+const observeHeightContraints = (node, setHeightConstraints) => {
+	const container = /** @type {HTMLElement|null} */(node.closest(
+		'.interface-interface-skeleton__content'
+	));
+	if (!container) return
+
+	const noticeContainer = /** @type {HTMLElement|null} */(container.querySelector( '.editor-notices' ));
+	const resizeHandle = /** @type {HTMLDivElement|null} */(container.querySelector(
+		'.edit-post-meta-boxes-main__presenter'
+	));
+	const deriveConstraints = () => {
+		const fullHeight = container.offsetHeight;
+		let nextMax = fullHeight;
+		if ( noticeContainer ) {
+			nextMax -= noticeContainer.offsetHeight;
+		}
+		const nextMin = resizeHandle?.offsetHeight ?? 0;
+		setHeightConstraints( { min: nextMin, max: nextMax } );
+	};
+	const observer = new ResizeObserver( deriveConstraints );
+	observer.observe( container );
+	if ( noticeContainer ) {
+		observer.observe( noticeContainer );
+	}
+	return () => {
+		observer.disconnect()
+	}
+}
+
+/**
  * @param {HTMLElement} canvas
- * @param {HTMLElement} metaPane
+ * @param {HTMLElement & { parentElement: HTMLElement, firstElementChild: HTMLElement }} metaPane
  */
 const activate = ( canvas, metaPane ) => {
 	const editorDocument = metaPane.ownerDocument
+	const metaPaneParent = metaPane.parentElement
+
+	const startObserveHeightConstraints = () => observeHeightContraints(
+		metaPaneParent,
+		(constraints) => {
+			({ max: maxHeight, min: minHeight } = constraints)
+		}
+	);
+
+	// This is updated from wheel events. It's here instead of kept local to those
+	// event handlers so that `applyHeight` can use it to determine whether to set
+	// the preference for metaBoxesMainIsOpen.
+	let minHeight = 32
+	let maxHeight = Infinity
 
 	const getThreshold = () =>
 		select(preferencesStore).get('s8/wheel-meta-boxes', 'threshold')
@@ -35,17 +87,23 @@ const activate = ( canvas, metaPane ) => {
 			'metaBoxesMainOpenHeight',
 			nextHeight
 		)
+		// This calls dispatch more than necessary but maybe okay for now.
+		dispatch(preferencesStore).set(
+			editPostStore.name,
+			'metaBoxesMainIsOpen',
+			nextHeight > minHeight
+		)
 	}
 
 	/** @param {Number} by */
 	const adjustSplit = ( by ) => {
-		const { height, minHeight, maxHeight } = metaPane.style
+		const { height } = metaPane.style
 		const fromHeight = height === 'auto'
 			? metaPane.offsetHeight
 			: parseFloat( height );
 		const nextHeight = Math.max(
-			parseFloat(minHeight), Math.min(
-				parseFloat(maxHeight),
+			minHeight, Math.min(
+				maxHeight,
 				fromHeight + by
 			)
 		)
@@ -53,7 +111,7 @@ const activate = ( canvas, metaPane ) => {
 	}
 
 	const cleanSet = new Set;
-	const cleanUp = () => cleanSet.forEach(clean => clean())
+	const cleanUp = () => cleanSet.forEach(clean => { clean() })
 	/**
 	 * Convenient way to add listeners and add a removal callback for easy cleanup.
 	 * @template {EventTarget} T
@@ -82,8 +140,10 @@ const activate = ( canvas, metaPane ) => {
 		})
 	}
 
-	// Freewheeling logic
-	if ( select(preferencesStore).get('s8/wheel-meta-boxes', 'freewheeling') ) {
+	const isFreewheeling = select(preferencesStore).get('s8/wheel-meta-boxes', 'freewheeling')
+
+	// Freewheeling activation
+	if ( isFreewheeling ) {
 		const interfaceContent = /**@type {HTMLElement}*/(metaPane.parentElement)
 		/** @param {WheelEvent} event */
 		const hotKeyAdjustSplit = event => {
@@ -114,6 +174,36 @@ const activate = ( canvas, metaPane ) => {
 				interfaceContent.classList.remove('&wheel-overlay')
 				interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
 			}
+		})
+	}
+
+	// Activates height constraint observation
+	if ( isFreewheeling || mode !== 'none' ) {
+		let stopObserveHeightConstraints = startObserveHeightConstraints();
+		let staleNoticesLength = 0;
+		// Subscribes to notices store to restart height constraint observation
+		// because the notices element goes in and out of existence. There is a
+		// wrapper element that persists that could be observed to obviate this but
+		// targeting it may be more fragile because it lacks a stable class name by
+		// which to select it.
+		const unsubNotices = subscribe(
+			() => {
+				const { length } = select(noticesStore).getNotices()
+				// Restarts observation only when the notices length changes from or to 0.
+				if (
+					(staleNoticesLength === 0 && length !== 0) ||
+					(staleNoticesLength > 0 && length === 0)
+				) {
+					staleNoticesLength = length
+					stopObserveHeightConstraints?.()
+					stopObserveHeightConstraints = startObserveHeightConstraints()
+				}
+			},
+			noticesStore
+		)
+		cleanSet.add(() => {
+			stopObserveHeightConstraints?.()
+			unsubNotices()
 		})
 	}
 
@@ -149,12 +239,8 @@ const activate = ( canvas, metaPane ) => {
 		}, { passive: false })
 	else
 		cleanlyListen( metaPane, 'wheel', ( event ) => {
-			if ( event.deltaY <= -getThreshold() ) {
-				if ( metaPaneLiner.scrollTop === 0 ) {
-					const { minHeight } = metaPane.style
-					applyHeight( parseFloat(minHeight) )
-				}
-			}
+			if ( event.deltaY <= -getThreshold() && metaPaneLiner.scrollTop === 0 )
+				applyHeight( minHeight )
 		}, { passive: true })
 
 	// Canvas wheel handling. Single listener used since passive suffices for either mode.
@@ -169,10 +255,8 @@ const activate = ( canvas, metaPane ) => {
 				gradualModeContraDetachmentBuffer()
 			}
 		} else {
-			if ( isScrollMax( canvas ) && event.deltaY >= getThreshold() ) {
-				const { maxHeight } = metaPane.style
-				applyHeight( parseFloat( maxHeight ) )
-			}
+			if ( isScrollMax( canvas ) && event.deltaY >= getThreshold() )
+				applyHeight( maxHeight )
 		}
 	}, { passive: true })
 
@@ -195,7 +279,9 @@ const activate = ( canvas, metaPane ) => {
 
 const getCanvas = () => window['editor-canvas']?.document.documentElement ?? null
 const getInlineCanvas = () => /**@type {HTMLElement?}*/(document.querySelector('.block-editor-block-canvas'))
-const getMetaPane = () => /**@type {HTMLElement?}*/(document.querySelector('.edit-post-meta-boxes-main'))
+const getMetaPane = () => /**@type {(HTMLElement & { parentElement: HTMLElement, firstElementChild: HTMLElement })?}*/(
+	document.querySelector('.edit-post-meta-boxes-main')
+)
 
 window.addEventListener(
 	'editorcanvascomplete',
