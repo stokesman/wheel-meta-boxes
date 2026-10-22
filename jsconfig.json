@@ -3,14 +3,11 @@
 		"paths": {
 			"$types": ["./index.d.ts"]
 		},
-		"target": "es2018",
-		"moduleResolution": "nodenext",
-		"jsx": "preserve",
+		"lib": ["DOM", "es2018"],
 		"allowJs": true,
 		"checkJs": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
 		"sourceMap": true,
 		"strict": true
 	}
