@@ -212,19 +212,20 @@ const activate = ( canvas, metaPane ) => {
 
 	let isStickingScroll = false;
 	const metaPaneLiner = /**@type {HTMLElement}*/(metaPane.querySelector('.edit-post-layout__metaboxes'))
-	const gradualModeContraDetachmentBuffer = () => {
-		const self = gradualModeContraDetachmentBuffer
-		self.isActive = true;
-		clearTimeout( self.tId );
-		self.tId = setTimeout( () => {
-			self.isActive = false;
-		}, 1000 );
-	}
-	gradualModeContraDetachmentBuffer.isActive = false
-	gradualModeContraDetachmentBuffer.tId = -1
-	const kill = () => {
-		clearTimeout(gradualModeContraDetachmentBuffer.tId)
-		gradualModeContraDetachmentBuffer.isActive = false
+	const gradualModeKeepAlive = {
+		isLive: false,
+		tId: -1,
+		relive() {
+			this.isLive = true;
+			clearTimeout(this.tId);
+			this.tId = setTimeout(() => {
+				this.isLive = false;
+			}, 1000);
+		},
+		kill() {
+			clearTimeout(this.tId)
+			this.isLive = false
+		}
 	}
 
 	// Meta pane wheel handling depending on mode.
@@ -233,11 +234,11 @@ const activate = ( canvas, metaPane ) => {
 			const isScrollBounded = metaPaneLiner.scrollTop === 0 && isScrollMax( canvas )
 			if (
 				isScrollBounded ||
-				gradualModeContraDetachmentBuffer.isActive
+				gradualModeKeepAlive.isLive
 			) {
 				adjustSplit( event.deltaY )
 				isStickingScroll = true
-				gradualModeContraDetachmentBuffer()
+				gradualModeKeepAlive.relive()
 				if ( canvasHeight > 0 ) event.preventDefault()
 			}
 		}, { passive: false })
@@ -252,11 +253,11 @@ const activate = ( canvas, metaPane ) => {
 		if ( mode === 'gradual' ) {
 			if (
 				isScrollMax( canvas ) ||
-				gradualModeContraDetachmentBuffer.isActive
+				gradualModeKeepAlive.isLive
 			) {
 				adjustSplit( event.deltaY )
 				isStickingScroll = true
-				gradualModeContraDetachmentBuffer()
+				gradualModeKeepAlive.relive()
 			}
 		} else {
 			if ( isScrollMax( canvas ) && event.deltaY >= getThreshold() )
@@ -274,7 +275,7 @@ const activate = ( canvas, metaPane ) => {
 				isStickingScroll = false;
 				// If the canvas is maximized immediately cancels the keep-alive for the resize engagement.
 				if (maxHeight - minHeight - canvasHeight < 1)
-					kill()
+					gradualModeKeepAlive.kill()
 				else
 					canvas.scrollTop = canvas.scrollHeight
 			}
