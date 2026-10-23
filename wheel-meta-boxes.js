@@ -111,6 +111,7 @@ const activate = ( canvas, metaPane ) => {
 			)
 		)
 		applyHeight( nextHeight )
+		return nextHeight
 	}
 
 	const cleanSet = new Set;
@@ -208,7 +209,6 @@ const activate = ( canvas, metaPane ) => {
 	// All done if mode is 'none';
 	if ( mode === 'none' ) return cleanUp;
 
-	let isStickingScroll = false;
 	const metaPaneLiner = /**@type {HTMLElement}*/(metaPane.querySelector('.edit-post-layout__metaboxes'))
 	const gradualModeKeepAlive = {
 		isLive: false,
@@ -235,7 +235,6 @@ const activate = ( canvas, metaPane ) => {
 				gradualModeKeepAlive.isLive
 			) {
 				adjustSplit( event.deltaY )
-				isStickingScroll = true
 				gradualModeKeepAlive.relive()
 				if ( canvasHeight > 0 ) event.preventDefault()
 			}
@@ -253,9 +252,12 @@ const activate = ( canvas, metaPane ) => {
 				isScrollMax( canvas ) ||
 				gradualModeKeepAlive.isLive
 			) {
-				adjustSplit( event.deltaY )
-				isStickingScroll = true
-				gradualModeKeepAlive.relive()
+				const nextHeight = adjustSplit( event.deltaY )
+				const isPaneMinimized = nextHeight - minHeight < 1
+				if ( isPaneMinimized )
+					gradualModeKeepAlive.kill()
+				else
+					gradualModeKeepAlive.relive()
 			}
 		} else {
 			if ( isScrollMax( canvas ) && event.deltaY >= getThreshold() )
@@ -269,13 +271,8 @@ const activate = ( canvas, metaPane ) => {
 		const canvasIframe = canvas.ownerDocument.defaultView?.frameElement
 		const stickScrollOnResize = new ResizeObserver( ([{ borderBoxSize }]) => {
 			[{ blockSize: canvasHeight }] = borderBoxSize
-			if ( isStickingScroll ) {
-				isStickingScroll = false;
-				// If the canvas is maximized immediately cancels the keep-alive for the resize engagement.
-				if (maxHeight - minHeight - canvasHeight < 1)
-					gradualModeKeepAlive.kill()
-				else
-					canvas.scrollTop = canvas.scrollHeight
+			if ( gradualModeKeepAlive.isLive ) {
+				canvas.scrollTop = canvas.scrollHeight
 			}
 		} )
 		stickScrollOnResize.observe( canvasIframe || canvas )
