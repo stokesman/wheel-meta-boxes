@@ -35,7 +35,7 @@ const modeHelpMap = {
 const modifierKey = isAppleOS() ? 'control' : 'Ctrl';
 
 const Sidebar = () => {
-	/** @type {[boolean, Mode, number]} */
+	/** @type {[boolean, Mode, number, boolean]} */
 	const [ freewheeling, mode, threshold, setsOnExit ] = useSelect( $ => {
 		const prefs = $( preferencesStore )
 		return [
