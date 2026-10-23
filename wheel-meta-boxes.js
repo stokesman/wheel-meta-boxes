@@ -1,6 +1,7 @@
 ((wp) => {
 
 const {
+	compose: { debounce },
 	data: { dispatch, select, subscribe },
 	editor: { store: editorStore },
 	editPost: { store: editPostStore },
@@ -86,17 +87,37 @@ const activate = ( canvas, metaPane ) => {
 		isOpen
 	)
 
-	/** @param {Number} nextHeight */
-	const applyHeight = nextHeight => {
-		metaPane.style.height = `${nextHeight}px`
-		dispatch(preferencesStore).set(
-			editPostStore.name,
-			'metaBoxesMainOpenHeight',
-			nextHeight
-		)
+	/**
+	 * @param {number} nextHeight
+	 * @param {boolean} [isPersistent]
+	 */
+	const applyHeight = ( nextHeight, isPersistent = true ) => {
+		if (isPersistent)
+			dispatch(preferencesStore).set(
+				editPostStore.name,
+				'metaBoxesMainOpenHeight',
+				nextHeight
+			)
+		else
+			metaPane.style.height = `${nextHeight}px`
 		// This calls dispatch more than necessary but maybe okay for now.
 		setIsOpen(nextHeight > minHeight)
 	}
+
+	const debouncedMayPersistHeight = debounce(
+		/** @param {number} nextHeight */
+		nextHeight => {
+			// Persist the height only if it wasn’t quite short. This is to avoid a
+			// later toggle of the pane “opening” to the min height or nearly so.
+			if (nextHeight > 250)
+				dispatch(preferencesStore).set(
+					editPostStore.name,
+					'metaBoxesMainOpenHeight',
+					nextHeight
+				)
+		},
+		250
+	)
 
 	/** @param {Number} by */
 	const adjustSplit = ( by ) => {
@@ -110,7 +131,15 @@ const activate = ( canvas, metaPane ) => {
 				fromHeight + by
 			)
 		)
-		applyHeight( nextHeight )
+		const isStartingClosed = fromHeight - minHeight < 1 && Math.sign(by) === 1
+		applyHeight(
+			nextHeight,
+			// Persist the height when starting closed because otherwise the switching of
+			// `metaBoxesMainIsOpen` makes it jump to the last height persisted.
+			isStartingClosed
+		)
+		if (!isStartingClosed)
+			debouncedMayPersistHeight(nextHeight)
 		return nextHeight
 	}
 
@@ -242,7 +271,7 @@ const activate = ( canvas, metaPane ) => {
 	else
 		cleanlyListen( metaPane, 'wheel', ( event ) => {
 			if ( event.deltaY <= -getThreshold() && metaPaneLiner.scrollTop === 0 )
-				applyHeight( minHeight )
+				applyHeight( minHeight, false )
 		}, { passive: true })
 
 	// Canvas wheel handling. Single listener used since passive suffices for either mode.
