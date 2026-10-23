@@ -77,7 +77,7 @@ const Sidebar = () => {
 		PluginSidebar,
 		{
 			name: 'wheel-meta-boxes-settings',
-			icon: 'image-flip-vertical',
+			icon: Icon,
 			title: 'Wheel meta boxes',
 		},
 		m(
@@ -152,6 +152,27 @@ const Sidebar = () => {
 		)
 	)
 }
+
+const Icon = () => m(
+	'svg',
+	{
+		width: 24,
+		height: 24,
+		viewBox: '0 0 24 24',
+		style: {
+			fill:'none',
+			stroke:'currentColor',
+			strokeWidth: 1.5,
+			strokeLinecap: 'round',
+			strokeLinejoin: 'round',
+		},
+	},
+	m( 'path', {d: 'm11 16 1 1 1-1' } ),
+	m( 'path', {d: 'm11 8 1-1 1 1' } ),
+	m( 'path', {d: 'M2 12h20' } ),
+	m( 'path', {d: 'M21 16v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3', opacity: 0.5 } ),
+	m( 'path', {d: 'M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3', opacity: 0.5 } ),
+);
 
 registerPlugin( 's8-wheel-meta-boxes-sidebar', {
 	render: Sidebar
