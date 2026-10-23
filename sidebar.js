@@ -1,6 +1,6 @@
 ((wp) => {
 
-const { createElement: m } = wp.element
+const { createElement: m, Fragment } = wp.element
 const {
 	Button,
 	Card,
@@ -27,8 +27,8 @@ dispatch( preferencesStore ).setDefaults(
 );
 
 const modeHelpMap = {
-	gradual: 'Adjust in proportion to input amount.',
-	whole: 'Expand or collapse wholly when input threshold is met.',
+	gradual: 'Emulates scrolling by gradually resizing the meta box pane.',
+	whole: 'Expands or collapses the meta box pane entirely.',
 	none: '',
 }
 
@@ -87,7 +87,7 @@ const Sidebar = () => {
 				m(
 					ToggleGroupControl,
 					{
-						label:'Scroll bounded behavior',
+						label:'Automatic mode',
 						onChange: setMode,
 						value: mode,
 						isBlock: true,
@@ -97,7 +97,7 @@ const Sidebar = () => {
 					},
 					m(ToggleGroupControlOption, {label:'Gradual', value:'gradual'}),
 					m(ToggleGroupControlOption, {label:'Whole', value:'whole'}),
-					m(ToggleGroupControlOption, {label:'None', value:'none'})
+					m(ToggleGroupControlOption, {label:'Off', value:'none'})
 				),
 				...(mode === 'whole' ? [
 					m( Spacer ),
@@ -134,10 +134,16 @@ const Sidebar = () => {
 				] : []),
 				m( CardDivider ),
 				m( ToggleControl, {
-					label: 'Freewheeling behavior',
+					label: 'Power mode',
 					checked: freewheeling,
 					onChange: setFreewheeling,
-					help: `Enable adjusting the split by pressing the ${ modifierKey} key and using the mouse wheel or scroll gesture.`,
+					help: m(
+						Fragment,
+						null,
+						'Enables resizing the meta box pane by holding ',
+						m(KBD, null, modifierKey),
+						' and using the mouse wheel or scroll gesture.'
+					),
 					__nextHasNoMarginBottom: true
 				}),
 				m( CardDivider ),
@@ -145,13 +151,25 @@ const Sidebar = () => {
 					label: 'Start minimized',
 					checked: setsOnExit,
 					onChange: () => set('s8/wheel-meta-boxes', 'setsOnExit', ! setsOnExit),
-					help: `Ensure the meta box pane is minimized when opening a post.`,
+					help: `Ensures the meta box pane is minimized when the editor opens.`,
 					__nextHasNoMarginBottom: true
 				})
 			)
 		)
 	)
 }
+/** @param {{children: string}} props */
+const KBD = ({children}) => m(
+	'kbd',
+	{style: {
+		fontSize: 'inherit',
+		padding: '1px 2px 0.5px',
+		background: 'none',
+		borderRadius: '2px',
+		boxShadow: '0 0 0 1px #0002, 0 2px 0 #0002',
+	}},
+	children
+);
 
 const Icon = () => m(
 	'svg',
