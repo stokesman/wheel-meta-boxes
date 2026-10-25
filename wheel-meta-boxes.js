@@ -163,8 +163,12 @@ const activate = ( canvas, metaPane ) => {
 	// to start minimized. Doing it this way instead of minimizing it upon initiation
 	// ensures the pane doesn't briefly fill space before that.
 	if ( select(preferencesStore).get('s8/wheel-meta-boxes', 'setsOnExit') ) {
+		const isOpen = () => select(preferencesStore).get(editPostStore.name, 'metaBoxesMainIsOpen');
+		let priorIsOpen = isOpen();
 		cleanlyListen(editorDocument, 'visibilitychange', () => {
-			setIsOpen( ! editorDocument.hidden )
+			const nextIsOpen = editorDocument.hidden ? false : priorIsOpen
+			priorIsOpen = isOpen();
+			setIsOpen( nextIsOpen )
 		})
 	}
 
