@@ -187,6 +187,13 @@ const activate = ( canvas, metaPane ) => {
 			event.preventDefault()
 			adjustSplit( event.deltaY )
 		}
+		/** @param {KeyboardEvent} event */
+		const endHotKeyAdjustSplit = ({key}) => {
+			if (key === 'Control') {
+				interfaceContent.classList.remove('&wheel-overlay')
+				interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
+			}
+		}
 		// Toggles an overlay on Control key press/release for adjusting the split.
 		cleanlyListen(editorDocument, 'keydown', ({key}) => {
 			if (key === 'Control') {
@@ -201,12 +208,10 @@ const activate = ( canvas, metaPane ) => {
 				}, {once: true})
 			}
 		})
-		cleanlyListen(editorDocument, 'keyup', ({key}) => {
-			if (key === 'Control') {
-				interfaceContent.classList.remove('&wheel-overlay')
-				interfaceContent.removeEventListener('wheel', hotKeyAdjustSplit)
-			}
-		})
+		// Listens for keyup on both the top document and the canvas document because
+		// if focus is inside the canvas keyup events are not bubbling out.
+		cleanlyListen(editorDocument, 'keyup', endHotKeyAdjustSplit)
+		cleanlyListen(canvas, 'keyup', endHotKeyAdjustSplit)
 	}
 
 	// Activates height constraint observation
